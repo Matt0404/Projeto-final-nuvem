@@ -1,0 +1,39 @@
+- name: Install Docker and run hello-world container
+  hosts: web_servers
+  become: true
+
+  vars:
+    docker_image: "mat505/hello-world:latest"
+
+  tasks:
+    - name: Install Docker
+      yum:
+        name: docker
+        state: present
+    - name: Install Python requests library
+      pip:
+        name:
+          - "urllib3<2.0"
+          - requests
+          - docker
+        executable: pip3
+
+    - name: Start and enable Docker service
+      service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Pull hello-world image
+      community.docker.docker_image:
+        name: "{{ docker_image }}"
+        source: pull
+
+    - name: Run hello-world container
+      community.docker.docker_container:
+        name: hello-world
+        image: "{{ docker_image }}"
+        state: started
+        restart_policy: always
+        ports:
+          - "80:80"
