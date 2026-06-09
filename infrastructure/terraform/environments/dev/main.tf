@@ -100,4 +100,5 @@ module "mini-ecommerce-dev-sqs" {
   dlq_name           = "order-created-dlq"
   visibility_timeout = 30
   max_receive_count  = 5
+  tags               = local.common_tags
 }

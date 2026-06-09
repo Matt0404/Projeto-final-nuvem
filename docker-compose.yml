@@ -45,8 +45,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       AWS_REGION: eu-central-1
       SQS_QUEUE_NAME: order-created
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_ACCESS_KEY_ID: ${ORDER_AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${ORDER_AWS_SECRET_ACCESS_KEY}
     networks:
       - microservices-network
 
@@ -61,8 +61,8 @@ services:
       AWS_REGION: eu-central-1
       SQS_QUEUE_NAME: order-created
       AWS_SES_FROM: noreply@example.com
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_ACCESS_KEY_ID: ${NOTIFICATION_AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${NOTIFICATION_AWS_SECRET_ACCESS_KEY}
     networks:
       - microservices-network
 

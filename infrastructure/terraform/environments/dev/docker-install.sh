@@ -15,3 +15,5 @@ curl -SL https://github.com/docker/compose/releases/latest/download/docker-compo
 chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
 usermod -aG docker ec2-user
+
+sudo yum install git -y
