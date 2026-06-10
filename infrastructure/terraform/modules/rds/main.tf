@@ -1,21 +1,21 @@
 resource "aws_db_subnet_group" "main" {
-  name       = "mini-ecommerce-dev-db-subnet-group"
+  name       = "modulos-db-subnet-group"
   subnet_ids = var.subnet_ids
  
   tags = merge(var.tags, {
-    Name = "mini-ecommerce-dev-db-subnet-group"
+    Name = "modulos-db-subnet-group"
   })
 }
  
 resource "aws_db_instance" "main" {
-  identifier        = "mini-ecommerce-dev-database"
+  identifier        = "modulos-database"
   engine            = "postgres"
   engine_version    = "17"
   instance_class    = "db.t3.micro"
   allocated_storage = 20
   storage_type      = "gp3"
  
-  db_name  = "mini-ecommerce-dev-db"
+  db_name  = "modulosdb"
   username = "dbadmin"
   password = var.db_password
  
@@ -26,6 +26,6 @@ resource "aws_db_instance" "main" {
   publicly_accessible     = false
  
   tags = merge(var.tags, {
-    Name = "mini-ecommerce-dev-database"
+    Name = "modulos-database"
   })
 }
