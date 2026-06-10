@@ -1,36 +1,41 @@
 spring:
   application:
-    name: product-service
+    name: order-service
   datasource:
-    url: jdbc:h2:mem:productsdb
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: 
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/modulos-database}
+    driver-class-name: org.postgresql.Driver
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
         format_sql: true
-  
-  kafka:
-    bootstrap-servers: localhost:9092
-    consumer:
-      group-id: product-service-group
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: "*"
-        spring.json.type.mapping: orderCreated:pt.ulusofona.productservice.event.OrderCreatedEvent
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
 server:
-  port: 8082
+  port: 8083
+
+# AWS SQS
+cloud:
+  aws:
+    region:
+      static: ${AWS_REGION:eu-central-1}
+    credentials:
+      access-key: ${AWS_ACCESS_KEY_ID:}
+      secret-key: ${AWS_SECRET_ACCESS_KEY:}
+
+sqs:
+  queue:
+    name: ${SQS_QUEUE_NAME:order-created}
+
+# OpenFeign — Product Service
+services:
+  product:
+    url: ${SERVICES_PRODUCT_URL:http://localhost:8082}
 
 management:
   endpoints:
@@ -53,25 +58,9 @@ springdoc:
     enabled: true
     tags-sorter: alpha
     operations-sorter: alpha
-  info:
-    title: Product Service API
-    description: Microservice for product management operations
-    version: 1.0.0
-    contact:
-      name: Cloud Computing Course
-      email: support@example.com
 
 logging:
   level:
-    pt.ulusofona.productservice: DEBUG
+    pt.ulusofona.orderservice: DEBUG
     org.springframework.web: INFO
-    org.springframework.kafka: INFO
-
-# Optional AWS SQS (Week 10 – students create queue + set URL; code ships in the template)
-cloud:
-  sqs:
-    product-events:
-      enabled: false
-      queue-url: ""
-      region: ""
-
+    software.amazon.awssdk: WARN

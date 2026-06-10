@@ -8,7 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 import pt.ulusofona.orderservice.client.ProductResponse;
 import pt.ulusofona.orderservice.client.ProductServiceClient;
 import pt.ulusofona.orderservice.client.UserResponse;
-import pt.ulusofona.orderservice.client.UserServiceClient;
 import pt.ulusofona.orderservice.dto.OrderItemRequest;
 import pt.ulusofona.orderservice.dto.OrderItemResponse;
 import pt.ulusofona.orderservice.dto.OrderRequest;
@@ -54,7 +53,7 @@ import java.util.stream.Collectors;
  * @version 1.0.0
  * @since 1.0.0
  * @see OrderRepository
- * @see UserServiceClient
+
  * @see ProductServiceClient
  */
 @Slf4j
@@ -63,7 +62,7 @@ import java.util.stream.Collectors;
 public class OrderService {
 
     private final OrderRepository orderRepository;
-    private final UserServiceClient userServiceClient;
+
     private final ProductServiceClient productServiceClient;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
