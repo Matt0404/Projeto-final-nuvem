@@ -2,7 +2,6 @@ package pt.ulusofona.orderservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.cloud.openfeign.EnableFeignClients;
 
 /**
  * Main application class for the Order Service microservice.
@@ -19,7 +18,6 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
  * <p>The service runs on port 8083 by default (configured in application.yml).
  */
 @SpringBootApplication
-@EnableFeignClients
 public class OrderServiceApplication {
 
     public static void main(String[] args) {
