@@ -31,6 +31,23 @@ module "vpc" {
   tags                 = local.common_tags
 }
 
+resource "aws_ecr_repository" "services" {
+  for_each = toset([
+    "api-gateway",
+    "catalog-service",
+    "order-service",
+    "notification-service"
+  ])
+
+  name                 = each.key
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+
 module "mini-ecommerce-dev-api_gateway" {
   source = "../../modules/ec2"
 
