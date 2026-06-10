@@ -48,7 +48,7 @@ Consulta [`docs/architecture.md`](docs/architecture.md) para o diagrama completo
 
 ```bash
 # 1. Clonar o repositório
-git clone <repo-url>
+git clone https://github.com/Matt0404/Projeto-final-nuvem.git
 cd mini-ecommerce
 
 # 2. Configurar variáveis de ambiente
@@ -67,8 +67,8 @@ Cria um ficheiro `.env` na raiz do projeto com os seguintes valores:
 
 ```env
 # Base de dados (RDS PostgreSQL)
-DB_USERNAME=o_teu_username
-DB_PASSWORD=a_tua_password
+DB_USERNAME="dbadmin"
+DB_PASSWORD="StrongPass123"
 
 # Credenciais AWS para o order-service (publicar na SQS)
 ORDER_AWS_ACCESS_KEY_ID=AKIA...

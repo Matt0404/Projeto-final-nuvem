@@ -1,0 +1,23 @@
+# infra/ansible/inventory/aws_ec2.yml
+# Inventário dinâmico — descobre as EC2 pelo tag Project + Name
+plugin: amazon.aws.aws_ec2
+
+regions:
+  - eu-central-1
+
+filters:
+  tag:Project: mini-ecommerce
+  instance-state-name: running
+
+keyed_groups:
+  # Cria grupos pelo tag Name: api_gateway, catalog_service, etc.
+  - key: tags.Name
+    prefix: ""
+    separator: ""
+
+hostnames:
+  - ip-address   # usa IP público para as instâncias públicas (api-gateway)
+  - private-ip-address
+
+compose:
+  ansible_host: public_ip_address | default(private_ip_address)

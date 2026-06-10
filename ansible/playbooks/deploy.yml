@@ -1,0 +1,146 @@
+# infra/ansible/playbooks/deploy.yml
+# Faz pull das novas imagens e reinicia cada serviço na EC2 certa
+
+---
+# ── 1. API Gateway (subnet pública) ──────────────────────────────
+- name: Deploy api-gateway
+  hosts: api-gateway
+  become: true
+  vars:
+    service_name: api-gateway
+    image: "{{ ecr_registry }}/api-gateway:{{ image_tag }}"
+    host_port: 8080
+    container_port: 8080
+  tasks:
+    - name: Login to ECR
+      shell: >
+        aws ecr get-login-password --region eu-central-1 |
+        docker login --username AWS --password-stdin {{ ecr_registry }}
+
+    - name: Pull image
+      community.docker.docker_image:
+        name: "{{ image }}"
+        source: pull
+        force_source: true
+
+    - name: Run container
+      community.docker.docker_container:
+        name: "{{ service_name }}"
+        image: "{{ image }}"
+        state: started
+        restart_policy: always
+        restart: true
+        ports:
+          - "{{ host_port }}:{{ container_port }}"
+        env:
+          SPRING_PROFILES_ACTIVE: docker
+          SERVICES_CATALOG_URL: "http://{{ hostvars[groups['catalog-service'][0]]['ansible_host'] }}:8082"
+          SERVICES_ORDER_URL: "http://{{ hostvars[groups['order-service'][0]]['ansible_host'] }}:8083"
+
+# ── 2. Catalog Service (subnet privada) ──────────────────────────
+- name: Deploy catalog-service
+  hosts: catalog-service
+  become: true
+  vars:
+    service_name: catalog-service
+    image: "{{ ecr_registry }}/catalog-service:{{ image_tag }}"
+  tasks:
+    - name: Login to ECR
+      shell: >
+        aws ecr get-login-password --region eu-central-1 |
+        docker login --username AWS --password-stdin {{ ecr_registry }}
+
+    - name: Pull image
+      community.docker.docker_image:
+        name: "{{ image }}"
+        source: pull
+        force_source: true
+
+    - name: Run container
+      community.docker.docker_container:
+        name: "{{ service_name }}"
+        image: "{{ image }}"
+        state: started
+        restart_policy: always
+        restart: true
+        ports:
+          - "8082:8082"
+        env:
+          SPRING_PROFILES_ACTIVE: docker
+          SPRING_DATASOURCE_URL: "{{ lookup('env', 'SPRING_DATASOURCE_URL') | default('jdbc:postgresql://modulos-database.clssk0ausycc.eu-central-1.rds.amazonaws.com:5432/modulos-database') }}"
+          SPRING_DATASOURCE_USERNAME: "{{ lookup('env', 'DB_USERNAME') }}"
+          SPRING_DATASOURCE_PASSWORD: "{{ lookup('env', 'DB_PASSWORD') }}"
+
+# ── 3. Order Service (subnet privada) ────────────────────────────
+- name: Deploy order-service
+  hosts: order-service
+  become: true
+  vars:
+    service_name: order-service
+    image: "{{ ecr_registry }}/order-service:{{ image_tag }}"
+  tasks:
+    - name: Login to ECR
+      shell: >
+        aws ecr get-login-password --region eu-central-1 |
+        docker login --username AWS --password-stdin {{ ecr_registry }}
+
+    - name: Pull image
+      community.docker.docker_image:
+        name: "{{ image }}"
+        source: pull
+        force_source: true
+
+    - name: Run container
+      community.docker.docker_container:
+        name: "{{ service_name }}"
+        image: "{{ image }}"
+        state: started
+        restart_policy: always
+        restart: true
+        ports:
+          - "8083:8083"
+        env:
+          SPRING_PROFILES_ACTIVE: docker
+          SPRING_DATASOURCE_URL: "jdbc:postgresql://modulos-database.clssk0ausycc.eu-central-1.rds.amazonaws.com:5432/modulos-database"
+          SPRING_DATASOURCE_USERNAME: "{{ lookup('env', 'DB_USERNAME') }}"
+          SPRING_DATASOURCE_PASSWORD: "{{ lookup('env', 'DB_PASSWORD') }}"
+          AWS_REGION: eu-central-1
+          SQS_QUEUE_NAME: order-created
+          AWS_ACCESS_KEY_ID: "{{ lookup('env', 'ORDER_AWS_ACCESS_KEY_ID') }}"
+          AWS_SECRET_ACCESS_KEY: "{{ lookup('env', 'ORDER_AWS_SECRET_ACCESS_KEY') }}"
+
+# ── 4. Notification Service (subnet privada) ─────────────────────
+- name: Deploy notification-service
+  hosts: notification-service
+  become: true
+  vars:
+    service_name: notification-service
+    image: "{{ ecr_registry }}/notification-service:{{ image_tag }}"
+  tasks:
+    - name: Login to ECR
+      shell: >
+        aws ecr get-login-password --region eu-central-1 |
+        docker login --username AWS --password-stdin {{ ecr_registry }}
+
+    - name: Pull image
+      community.docker.docker_image:
+        name: "{{ image }}"
+        source: pull
+        force_source: true
+
+    - name: Run container
+      community.docker.docker_container:
+        name: "{{ service_name }}"
+        image: "{{ image }}"
+        state: started
+        restart_policy: always
+        restart: true
+        ports:
+          - "8081:8081"
+        env:
+          SPRING_PROFILES_ACTIVE: docker
+          AWS_REGION: eu-central-1
+          SQS_QUEUE_NAME: order-created
+          AWS_SES_FROM: noreply@example.com
+          AWS_ACCESS_KEY_ID: "{{ lookup('env', 'NOTIFICATION_AWS_ACCESS_KEY_ID') }}"
+          AWS_SECRET_ACCESS_KEY: "{{ lookup('env', 'NOTIFICATION_AWS_SECRET_ACCESS_KEY') }}"
