@@ -15,7 +15,7 @@ A plataforma utiliza dois utilizadores IAM dedicados — um por serviço que nec
 | Utilizador IAM | Usado por | Permissões |
 |---|---|---|
 | `order-service-user` | order-service | SQS `SendMessage`, `GetQueueUrl` na fila `order-created` |
-| `notification-service-user` | notification-service | SQS `ReceiveMessage`, `DeleteMessage`, `GetQueueAttributes` na fila `order-created`; SES `SendEmail` |
+| `notification-service-user` | notification-service | SQS `ReceiveMessage`, `DeleteMessage`, `GetQueueAttributes` na fila `order-created` |
 
 ### Políticas de Menor Privilégio
 
@@ -38,7 +38,7 @@ A plataforma utiliza dois utilizadores IAM dedicados — um por serviço que nec
 }
 ```
 
-**notification-service-user** — consumir e enviar email, sem escrita na fila:
+**notification-service-user** — consumir da fila, sem escrita:
 
 ```json
 {
@@ -53,21 +53,12 @@ A plataforma utiliza dois utilizadores IAM dedicados — um por serviço que nec
         "sqs:GetQueueAttributes"
       ],
       "Resource": "arn:aws:sqs:eu-central-1:<account-id>:order-created"
-    },
-    {
-      "Sid": "SESSend",
-      "Effect": "Allow",
-      "Action": [
-        "ses:SendEmail",
-        "ses:SendRawEmail"
-      ],
-      "Resource": "*"
     }
   ]
 }
 ```
 
-Nenhum dos utilizadores tem acesso a RDS, EC2, VPC ou qualquer outro serviço AWS.
+Nenhum dos utilizadores tem acesso a RDS, EC2, VPC, ECR ou qualquer outro serviço AWS fora do necessário.
 
 ### Acesso ao RDS
 
@@ -94,7 +85,7 @@ Subnets Privadas (10.0.10.0/24, 10.0.20.0/24)
 
 | Security Group | Tráfego de entrada | Tráfego de saída |
 |---|---|---|
-| `web_sg` (serviços EC2) | Portas 8080–8083 do CIDR da VPC | Tudo (para alcançar RDS, SQS, SES) |
+| `web_sg` (serviços EC2) | Portas 8080–8083 do CIDR da VPC | Tudo (para alcançar RDS, SQS, ECR) |
 | `db_sg` (RDS) | Porta 5432 apenas do `web_sg` | Nenhum |
 
 O RDS nunca é acessível a partir da internet pública. Apenas as instâncias EC2 no `web_sg` podem ligar na porta 5432.
@@ -103,9 +94,33 @@ O RDS nunca é acessível a partir da internet pública. Apenas as instâncias E
 
 ## Gestão de Segredos
 
-### Abordagem Atual
+### Segredos no Pipeline CI/CD (GitHub Actions)
 
-Os segredos são passados aos containers como variáveis de ambiente, a partir de um ficheiro `.env` na instância EC2 em tempo de execução.
+Todas as credenciais sensíveis são armazenadas como **segredos encriptados do GitHub Actions** e nunca aparecem nos logs do pipeline. O pipeline injeta-os como variáveis de ambiente nos jobs relevantes.
+
+| Segredo GitHub | Usado em | Propósito |
+|---|---|---|
+| `AWS_ACCOUNT_ID` | build-and-push | Construir o URL do registo ECR |
+| `AWS_ACCESS_KEY_ID` | todos os jobs | Credenciais AWS para deploy |
+| `AWS_SECRET_ACCESS_KEY` | todos os jobs | Credenciais AWS para deploy |
+| `DB_PASSWORD` | terraform-apply, ansible-deploy | Password do RDS |
+| `DB_USERNAME` | ansible-deploy | Username do RDS |
+| `EC2_KEY_NAME` | terraform-apply | Nome do par de chaves SSH na AWS |
+| `EC2_SSH_PRIVATE_KEY` | ansible-deploy | Chave privada SSH para acesso às EC2 |
+| `ORDER_AWS_ACCESS_KEY_ID` | ansible-deploy | Credenciais do order-service-user |
+| `ORDER_AWS_SECRET_ACCESS_KEY` | ansible-deploy | Credenciais do order-service-user |
+| `NOTIFICATION_AWS_ACCESS_KEY_ID` | ansible-deploy | Credenciais do notification-service-user |
+| `NOTIFICATION_AWS_SECRET_ACCESS_KEY` | ansible-deploy | Credenciais do notification-service-user |
+
+A chave SSH privada é escrita em `/tmp/deploy_key.pem` durante o job Ansible e removida automaticamente no final da execução do runner.
+
+### Aprovação Manual no Pipeline
+
+O pipeline de deploy usa o environment `production` do GitHub Actions, que pode ser configurado para exigir **aprovação manual** antes de executar. Isto impede deploys acidentais ou não autorizados para a produção.
+
+### Segredos em Deploy Manual (ficheiro .env)
+
+Quando o deploy é feito manualmente, os segredos são passados aos containers como variáveis de ambiente a partir de um ficheiro `.env` na instância EC2 em tempo de execução.
 
 | Segredo | Onde está guardado |
 |-----|------------------------|
@@ -129,7 +144,7 @@ Adiciona o seguinte ao `.gitignore`:
 
 ### Melhorias Recomendadas (futuro)
 
-Para um sistema em produção, considera migrar os segredos para o **AWS Secrets Manager** ou **SSM Parameter Store** e usar instance roles de EC2 em vez de access keys de longa duração. Isto elimina completamente a necessidade de credenciais armazenadas em disco.
+Para um sistema em produção, considera migrar os segredos para o **AWS Secrets Manager** ou **SSM Parameter Store** e usar instance roles de EC2 em vez de access keys de longa duração. Isto elimina completamente a necessidade de credenciais armazenadas em disco ou em segredos do CI/CD.
 
 ---
 
@@ -139,22 +154,13 @@ A fila `order-created` tem uma DLQ (`order-created-dlq`) configurada com `maxRec
 
 ---
 
-## SES Sandbox
-
-Na configuração atual, o AWS SES opera em modo sandbox. Isto significa:
-- Apenas endereços de envio **verificados** podem enviar email (`AWS_SES_FROM` tem de estar verificado em `eu-central-1`).
-- Apenas endereços de destinatário **verificados** recebem email.
-
-Para enviar para utilizadores reais, solicita acesso de produção através da consola AWS SES.
-
----
-
 ## Checklist para um Novo Deploy
 
 - [ ] Utilizadores IAM criados com as políticas de menor privilégio acima
 - [ ] Sem permissões de admin ou `*:*` atribuídas aos utilizadores IAM dos serviços
-- [ ] Ficheiro `.env` presente nas instâncias EC2, fora do controlo de versão
+- [ ] Segredos GitHub Actions configurados (para deploy via CI/CD)
+- [ ] Environment `production` configurado com revisores (para aprovação manual)
+- [ ] Ficheiro `.env` presente nas instâncias EC2, fora do controlo de versão (para deploy manual)
 - [ ] `terraform.tfvars` não commitado para o git
 - [ ] RDS não acessível publicamente (confirmado na consola AWS)
-- [ ] Endereço de envio SES verificado
 - [ ] DLQ monitorizada para mensagens falhadas

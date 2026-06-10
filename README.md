@@ -1,10 +1,10 @@
 # mini-ecommerce
 
-Plataforma de e-commerce cloud-native baseada em microsserviços, construída com Spring Boot e deployada na AWS com Terraform e Docker.
+Plataforma de e-commerce cloud-native baseada em microsserviços, construída com Spring Boot e deployada na AWS com Terraform, Ansible e Docker.
 
 ## Visão Geral
 
-Este projeto implementa um backend de mini e-commerce composto por quatro serviços independentes que comunicam via HTTP e AWS SQS. A infraestrutura é provisionada com Terraform e os serviços são containerizados com Docker.
+Este projeto implementa um backend de mini e-commerce composto por quatro serviços independentes que comunicam via HTTP e AWS SQS. A infraestrutura é provisionada com Terraform, as imagens Docker são armazenadas no Amazon ECR e o deploy nas instâncias EC2 é automatizado com Ansible, orquestrado por pipelines GitHub Actions.
 
 ## Arquitetura
 
@@ -12,7 +12,7 @@ Este projeto implementa um backend de mini e-commerce composto por quatro servi�
 Cliente / curl
      │
      ▼
-ALB / api-gateway  (EC2 Público — porta 8080)
+api-gateway  (EC2 Público — porta 8080)
      │
      ├──► catalog-service  (EC2 Privado — porta 8082) ──► RDS PostgreSQL
      │
@@ -22,7 +22,7 @@ ALB / api-gateway  (EC2 Público — porta 8080)
                            SQS: order-created
                                    │
                                    ▼
-                       notification-service (EC2 Privado — porta 8081) ──► AWS SES
+                       notification-service (EC2 Privado — porta 8081)
 ```
 
 Consulta [`docs/architecture.md`](docs/architecture.md) para o diagrama completo e descrição dos componentes.
@@ -34,15 +34,14 @@ Consulta [`docs/architecture.md`](docs/architecture.md) para o diagrama completo
 | `api-gateway` | 8080 | Ponto de entrada — encaminha pedidos para os serviços de catálogo e encomendas |
 | `catalog-service` | 8082 | Catálogo de produtos — lê/escreve no RDS PostgreSQL |
 | `order-service` | 8083 | Gestão de encomendas — escreve no RDS e publica na SQS |
-| `notification-service` | 8081 | Consome a fila SQS `order-created` e envia email via SES |
+| `notification-service` | 8081 | Consome a fila SQS `order-created` (envio de email via SES não operacional — ver `docs/limitations.md`) |
 
 ## Pré-requisitos
 
 - Docker & Docker Compose
 - Terraform ≥ 1.5
 - AWS CLI configurado (`aws configure`)
-- Conta AWS com permissões para EC2, RDS, SQS, SES, VPC e IAM
-- Endereço de email verificado no AWS SES
+- Conta AWS com permissões para EC2, RDS, SQS, VPC, IAM e ECR
 
 ## Início Rápido (Local)
 
@@ -74,7 +73,7 @@ DB_PASSWORD="StrongPass123"
 ORDER_AWS_ACCESS_KEY_ID=AKIA...
 ORDER_AWS_SECRET_ACCESS_KEY=...
 
-# Credenciais AWS para o notification-service (consumir SQS + enviar SES)
+# Credenciais AWS para o notification-service (consumir SQS)
 NOTIFICATION_AWS_ACCESS_KEY_ID=AKIA...
 NOTIFICATION_AWS_SECRET_ACCESS_KEY=...
 ```
@@ -83,16 +82,18 @@ NOTIFICATION_AWS_SECRET_ACCESS_KEY=...
 
 ## Deploy na AWS
 
+O deploy na AWS é totalmente automatizado via GitHub Actions. O pipeline executa-se automaticamente a cada push para `main` e realiza três etapas em sequência: build e push das imagens Docker para o Amazon ECR, apply da infraestrutura com Terraform, e deploy dos containers nas instâncias EC2 via Ansible.
+
 Consulta [`docs/deployment.md`](docs/deployment.md) para o guia passo a passo completo.
 
-```bash
-# Provisionar infraestrutura
-cd infra/environments/dev
-terraform init
-terraform apply
+## CI/CD
 
-# Fazer deploy dos serviços via Docker Compose em cada instância EC2
-```
+| Pipeline | Gatilho | O que faz |
+|---|---|---|
+| `pr.yml` | Pull Request para `main` | Lint (Checkstyle), testes unitários e `terraform plan` |
+| `deploy.yml` | Push para `main` | Build & push ECR, `terraform apply`, deploy Ansible |
+
+Consulta [`docs/deployment.md`](docs/deployment.md) para detalhes completos do workflow.
 
 ## Estrutura do Projeto
 
@@ -103,23 +104,32 @@ mini-ecommerce/
 │   ├── catalog-service/
 │   ├── order-service/
 │   └── notification-service/
-├── infra/
-│   ├── environments/
-│   │   └── dev/
-│   │       ├── main.tf
-│   │       ├── variables.tf
-│   │       └── docker-install.sh
-│   └── modules/
-│       ├── vpc/
-│       ├── ec2/
-│       ├── rds/
-│       └── sqs/
+├── infrastructure/
+│   └── terraform/
+│       ├── modules/
+│       │   ├── vpc/
+│       │   ├── ec2/
+│       │   ├── rds/
+│       │   └── sqs/
+│       └── environments/
+│           └── dev/
+├── ansible/
+│   ├── playbooks/
+│   │   └── deploy.yml
+│   └── inventory/
+│       └── aws_ec2.yml
+├── .github/
+│   └── workflows/
+│       ├── pr.yml
+│       └── deploy.yml
 ├── docker-compose.yml
-├── .env.example
+├── .env
 └── docs/
     ├── architecture.md
+    ├── setup.md
     ├── deployment.md
-    └── security.md
+    ├── security.md
+    └── limitations.md
 ```
 
 ## Segurança
