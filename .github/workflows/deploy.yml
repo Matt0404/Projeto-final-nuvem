@@ -146,7 +146,7 @@ jobs:
 
       - name: Configure SSH jump host (api-gateway -> subnets privadas)
         run: |
-          # IP publico do api-gateway (bastion)
+          # IP publico do api-gateway — query dedicada por tag Name
           API_GW_IP=$(aws ec2 describe-instances \
             --filters "Name=tag:Name,Values=api_gateway" \
                       "Name=instance-state-name,Values=running" \
@@ -154,22 +154,40 @@ jobs:
             --output text)
           echo "API Gateway IP: ${API_GW_IP}"
 
-          # IPs privados dos servicos nas subnets privadas (todos exceto api_gateway)
-          PRIVATE_IPS=$(aws ec2 describe-instances \
-            --filters "Name=tag:Project,Values=mini-ecommerce" \
+          # IPs privados do catalog-service — query dedicada por tag Name
+          CATALOG_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=catalog_service" \
                       "Name=instance-state-name,Values=running" \
-            --query "Reservations[].Instances[?Tags[?Key=='Name'&&Value!='api_gateway']].PrivateIpAddress" \
+            --query "Reservations[0].Instances[0].PrivateIpAddress" \
             --output text)
-          echo "Private IPs: ${PRIVATE_IPS}"
+          echo "Catalog IP: ${CATALOG_IP}"
+
+          # IPs privados do order-service — query dedicada por tag Name
+          ORDER_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=order_service" \
+                      "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].PrivateIpAddress" \
+            --output text)
+          echo "Order IP: ${ORDER_IP}"
+
+          # IPs privados do notification-service — query dedicada por tag Name
+          NOTIFICATION_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=notification_service" \
+                      "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].PrivateIpAddress" \
+            --output text)
+          echo "Notification IP: ${NOTIFICATION_IP}"
 
           mkdir -p ~/.ssh
 
-          # api-gateway — acesso direto sem ProxyJump
+          # api-gateway — acesso direto, sem ProxyJump
           printf "Host %s\n  StrictHostKeyChecking no\n  IdentityFile /tmp/deploy_key.pem\n\n" "${API_GW_IP}" >> ~/.ssh/config
 
-          # servicos privados — saltam pelo api-gateway usando IP privado
-          for IP in ${PRIVATE_IPS}; do
-            printf "Host %s\n  ProxyJump ec2-user@%s\n  StrictHostKeyChecking no\n  IdentityFile /tmp/deploy_key.pem\n\n" "${IP}" "${API_GW_IP}" >> ~/.ssh/config
+          # servicos privados — ProxyJump pelo api-gateway
+          for IP in "${CATALOG_IP}" "${ORDER_IP}" "${NOTIFICATION_IP}"; do
+            if [ -n "${IP}" ] && [ "${IP}" != "None" ]; then
+              printf "Host %s\n  ProxyJump ec2-user@%s\n  StrictHostKeyChecking no\n  IdentityFile /tmp/deploy_key.pem\n\n" "${IP}" "${API_GW_IP}" >> ~/.ssh/config
+            fi
           done
 
           # fallback
