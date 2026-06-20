@@ -1,4 +1,4 @@
-# infra/ansible/playbooks/deploy.yml
+# ansible/playbooks/deploy.yml
 # Faz pull das novas imagens e reinicia cada serviço na EC2 certa
 
 ---
@@ -34,8 +34,8 @@
           - "{{ host_port }}:{{ container_port }}"
         env:
           SPRING_PROFILES_ACTIVE: docker
-          SERVICES_CATALOG_URL: "http://{{ hostvars[groups['catalog-service'][0]]['ansible_host'] }}:8082"
-          SERVICES_ORDER_URL: "http://{{ hostvars[groups['order-service'][0]]['ansible_host'] }}:8083"
+          SERVICES_CATALOG_URL: "http://{{ hostvars[groups['catalog_service'][0]]['ansible_host'] }}:8082"
+          SERVICES_ORDER_URL: "http://{{ hostvars[groups['order_service'][0]]['ansible_host'] }}:8083"
 
 # ── 2. Catalog Service (subnet privada) ──────────────────────────
 - name: Deploy catalog-service
