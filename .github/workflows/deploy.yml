@@ -131,8 +131,11 @@ jobs:
 
       - name: Write SSH private key
         run: |
-          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key.pem
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key.pem
           chmod 600 /tmp/deploy_key.pem
+          # Verifica que a chave tem o formato correcto
+          head -1 /tmp/deploy_key.pem
+          tail -1 /tmp/deploy_key.pem
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
