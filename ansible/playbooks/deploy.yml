@@ -11,6 +11,13 @@
     host_port: 8080
     container_port: 8080
   tasks:
+    - name: Instalar dependências Python para módulos Ansible
+      pip:
+        name:
+          - requests
+          - docker
+        executable: pip3
+
     - name: Login to ECR
       shell: >
         aws ecr get-login-password --region eu-central-1 |
@@ -44,6 +51,13 @@
     service_name: catalog-service
     image: "{{ ecr_registry }}/catalog-service:{{ image_tag }}"
   tasks:
+    - name: Instalar dependências Python para módulos Ansible
+      pip:
+        name:
+          - requests
+          - docker
+        executable: pip3
+
     - name: Login to ECR
       shell: >
         aws ecr get-login-password --region eu-central-1 |
@@ -78,6 +92,13 @@
     service_name: order-service
     image: "{{ ecr_registry }}/order-service:{{ image_tag }}"
   tasks:
+    - name: Instalar dependências Python para módulos Ansible
+      pip:
+        name:
+          - requests
+          - docker
+        executable: pip3
+
     - name: Login to ECR
       shell: >
         aws ecr get-login-password --region eu-central-1 |
@@ -116,6 +137,13 @@
     service_name: notification-service
     image: "{{ ecr_registry }}/notification-service:{{ image_tag }}"
   tasks:
+    - name: Instalar dependências Python para módulos Ansible
+      pip:
+        name:
+          - requests
+          - docker
+        executable: pip3
+
     - name: Login to ECR
       shell: >
         aws ecr get-login-password --region eu-central-1 |
