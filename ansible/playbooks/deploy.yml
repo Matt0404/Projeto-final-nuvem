@@ -1,7 +1,6 @@
 # ansible/playbooks/deploy.yml
 # Faz pull das novas imagens e reinicia cada serviço na EC2 certa
 
----
 # ── 1. API Gateway (subnet pública) ──────────────────────────────
 - name: Deploy api-gateway
   hosts: api_gateway
