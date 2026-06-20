@@ -131,7 +131,7 @@ jobs:
 
       - name: Write SSH private key
         run: |
-          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > /tmp/deploy_key.pem
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key.pem
           chmod 600 /tmp/deploy_key.pem
 
       - name: Configure AWS credentials
