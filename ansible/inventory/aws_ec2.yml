@@ -16,10 +16,13 @@ keyed_groups:
     separator: ""
 
 hostnames:
-  - ip-address   # usa IP público para as instâncias públicas (api-gateway)
+  - ip-address
   - private-ip-address
 
 compose:
-  ansible_host: public_ip_address | default(private_ip_address)
-  ansible_user: "'ec2-user'"            
-  ansible_python_interpreter: "'/usr/bin/python3'"                       
+  # api_gateway usa IP público (subnet pública, acessível diretamente)
+  # os restantes usam IP privado (subnet privada, acesso via ProxyJump)
+  ansible_host: >-
+    public_ip_address if tags.Name == 'api_gateway' else private_ip_address
+  ansible_user: "'ec2-user'"
+  ansible_python_interpreter: "'/usr/bin/python3'"

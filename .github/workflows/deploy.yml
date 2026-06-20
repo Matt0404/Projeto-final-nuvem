@@ -154,20 +154,20 @@ jobs:
             --output text)
           echo "API Gateway IP: ${API_GW_IP}"
 
-          # IPs privados dos servicos sem IP publico
+          # IPs privados dos servicos nas subnets privadas (todos exceto api_gateway)
           PRIVATE_IPS=$(aws ec2 describe-instances \
             --filters "Name=tag:Project,Values=mini-ecommerce" \
                       "Name=instance-state-name,Values=running" \
-            --query "Reservations[].Instances[?PublicIpAddress==null].PrivateIpAddress" \
+            --query "Reservations[].Instances[?Tags[?Key=='Name'&&Value!='api_gateway']].PrivateIpAddress" \
             --output text)
           echo "Private IPs: ${PRIVATE_IPS}"
 
           mkdir -p ~/.ssh
 
-          # api-gateway — acesso direto
+          # api-gateway — acesso direto sem ProxyJump
           printf "Host %s\n  StrictHostKeyChecking no\n  IdentityFile /tmp/deploy_key.pem\n\n" "${API_GW_IP}" >> ~/.ssh/config
 
-          # servicos privados — saltam pelo api-gateway
+          # servicos privados — saltam pelo api-gateway usando IP privado
           for IP in ${PRIVATE_IPS}; do
             printf "Host %s\n  ProxyJump ec2-user@%s\n  StrictHostKeyChecking no\n  IdentityFile /tmp/deploy_key.pem\n\n" "${IP}" "${API_GW_IP}" >> ~/.ssh/config
           done
