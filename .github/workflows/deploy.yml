@@ -141,14 +141,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Debug SSH connection
-        run: |
-          ssh -i /tmp/deploy_key.pem \
-            -o StrictHostKeyChecking=no \
-            -o BatchMode=yes \
-            -v \
-            ec2-user@3.67.133.53 "echo OK" 2>&1 | tail -20
-
       - name: Run Ansible Playbook
         env:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
