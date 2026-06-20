@@ -146,6 +146,29 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Configure SSH jump host (api-gateway → subnets privadas)
+        run: |
+          API_GW_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=api_gateway" \
+                      "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].PublicIpAddress" \
+            --output text)
+
+          echo "API Gateway IP: ${API_GW_IP}"
+
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/config << EOF
+          Host 10.0.*.*
+            ProxyJump ec2-user@${API_GW_IP}
+            StrictHostKeyChecking no
+            IdentityFile /tmp/deploy_key.pem
+          Host *
+            StrictHostKeyChecking no
+            IdentityFile /tmp/deploy_key.pem
+          EOF
+
+          chmod 600 ~/.ssh/config
+
       - name: Run Ansible Playbook
         env:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
