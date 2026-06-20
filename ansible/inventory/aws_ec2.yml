@@ -22,7 +22,8 @@ hostnames:
 compose:
   # api_gateway usa IP público (subnet pública, acessível diretamente)
   # os restantes usam IP privado (subnet privada, acesso via ProxyJump)
-  ansible_host: >-
-    public_ip_address if tags.Name == 'api_gateway' else private_ip_address
+  # Correcção: expressão numa única linha, com | default() como safety-net
+  # para o caso de public_ip_address estar None/vazio no momento da query
+  ansible_host: "(public_ip_address | default(private_ip_address)) if (tags.Name | default('')) == 'api_gateway' else private_ip_address"
   ansible_user: "'ec2-user'"
   ansible_python_interpreter: "'/usr/bin/python3'"
