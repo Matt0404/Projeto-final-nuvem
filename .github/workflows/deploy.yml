@@ -1,77 +1,71 @@
-name: PR Pipeline — Lint, Test & Plan
+name: Deploy Pipeline — Build, Apply & Deploy
 
 on:
-  pull_request:
+  push:
     branches: [main]
 
 env:
   AWS_REGION: eu-central-1
-  TF_WORKING_DIR: ./infrastructure/terraform/environments/dev 
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com
+  TF_WORKING_DIR: ./infrastructure/terraform/environments/dev
 
 jobs:
   # ─────────────────────────────────────────
-  # 1. LINT (Checkstyle / Maven)
+  # 1. BUILD & PUSH — Docker images para ECR
   # ─────────────────────────────────────────
-  lint:
-    name: Lint — all services
+  build-and-push:
+    name: Build & Push Images
     runs-on: ubuntu-latest
+    environment: production          # requer aprovação manual (ver README)
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+
     strategy:
       matrix:
-        service: [api-gateway, catalog-service, order-service, notification-service]
+        service:
+          - name: api-gateway
+            port: 8080
+          - name: catalog-service
+            port: 8082
+          - name: order-service
+            port: 8083
+          - name: notification-service
+            port: 8081
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          java-version: "17"
-          distribution: temurin
-          cache: maven
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Checkstyle — ${{ matrix.service }}
-        working-directory: services/${{ matrix.service }}
-        run: mvn checkstyle:check --no-transfer-progress
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag (short SHA)
+        id: meta
+        run: echo "tag=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
+      - name: Build & Push — ${{ matrix.service.name }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/${{ matrix.service.name }}
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ matrix.service.name }}:${{ steps.meta.outputs.tag }}
+            ${{ env.ECR_REGISTRY }}/${{ matrix.service.name }}:latest
 
   # ─────────────────────────────────────────
-  # 2. UNIT TESTS
+  # 2. TERRAFORM APPLY — infra actualizada
   # ─────────────────────────────────────────
-  test:
-    name: Test — all services
+  terraform-apply:
+    name: Terraform Apply
     runs-on: ubuntu-latest
-    needs: lint
-    strategy:
-      matrix:
-        service: [api-gateway, catalog-service, order-service, notification-service]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: "17"
-          distribution: temurin
-          cache: maven
-
-      - name: Unit tests — ${{ matrix.service }}
-        working-directory: services/${{ matrix.service }}
-        run: mvn test --no-transfer-progress
-
-      - name: Upload test report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-report-${{ matrix.service }}
-          path: services/${{ matrix.service }}/target/surefire-reports/
-
-  # ─────────────────────────────────────────
-  # 3. TERRAFORM PLAN (preview only)
-  # ─────────────────────────────────────────
-  terraform-plan:
-    name: Terraform Plan
-    runs-on: ubuntu-latest
-    needs: test
-    permissions:
-      pull-requests: write   # para comentar o plan no PR
+    needs: build-and-push
+    environment: production
 
     steps:
       - uses: actions/checkout@v4
@@ -92,36 +86,132 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init
 
-      - name: Terraform Validate
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform validate
-
-      - name: Terraform Plan
-        id: plan
+      - name: Terraform Apply
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          terraform plan -no-color -out=tfplan \
+          terraform apply -auto-approve \
             -var="db_password=${{ secrets.DB_PASSWORD }}" \
             -var="key_name=${{ secrets.EC2_KEY_NAME }}"
-        continue-on-error: true
 
-      # Posta o plan como comentário no PR
-      - name: Comment Plan on PR
-        uses: actions/github-script@v7
+      # Exporta os IPs das EC2 para o Ansible usar
+      - name: Export EC2 IPs
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform output -json ec2_ips > /tmp/ec2_ips.json
+          cat /tmp/ec2_ips.json
+
+      - name: Upload EC2 IPs artifact
+        uses: actions/upload-artifact@v4
         with:
-          script: |
-            const output = `#### Terraform Plan 📋
-            \`\`\`
-            ${{ steps.plan.outputs.stdout }}
-            \`\`\`
-            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: output
-            })
+          name: ec2-ips
+          path: /tmp/ec2_ips.json
 
-      - name: Fail if plan failed
-        if: steps.plan.outcome == 'failure'
-        run: exit 1
+  # ─────────────────────────────────────────
+  # 3. ANSIBLE DEPLOY — pull images + restart
+  # ─────────────────────────────────────────
+  ansible-deploy:
+    name: Ansible Deploy
+    runs-on: ubuntu-latest
+    needs: [build-and-push, terraform-apply]
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download EC2 IPs
+        uses: actions/download-artifact@v4
+        with:
+          name: ec2-ips
+          path: /tmp/
+
+      - name: Install Ansible
+        run: |
+          pip install "ansible==9.5.1" boto3 botocore --quiet
+          ansible-galaxy collection install amazon.aws community.docker
+          ansible --version
+
+      - name: Write SSH private key
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key.pem
+          chmod 600 /tmp/deploy_key.pem
+          head -1 /tmp/deploy_key.pem
+          tail -1 /tmp/deploy_key.pem
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configure SSH jump host (api-gateway -> subnets privadas)
+        run: |
+          # IP publico do api-gateway — query dedicada por tag Name
+          API_GW_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=api_gateway" \
+                      "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].PublicIpAddress" \
+            --output text)
+          echo "API Gateway IP: ${API_GW_IP}"
+
+          # IPs privados do catalog-service — query dedicada por tag Name
+          CATALOG_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=catalog_service" \
+                      "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].PrivateIpAddress" \
+            --output text)
+          echo "Catalog IP: ${CATALOG_IP}"
+
+          # IPs privados do order-service — query dedicada por tag Name
+          ORDER_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=order_service" \
+                      "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].PrivateIpAddress" \
+            --output text)
+          echo "Order IP: ${ORDER_IP}"
+
+          # IPs privados do notification-service — query dedicada por tag Name
+          NOTIFICATION_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=notification_service" \
+                      "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].PrivateIpAddress" \
+            --output text)
+          echo "Notification IP: ${NOTIFICATION_IP}"
+
+          mkdir -p ~/.ssh
+
+          # api-gateway — acesso direto, sem ProxyJump
+          printf "Host %s\n  StrictHostKeyChecking no\n  IdentityFile /tmp/deploy_key.pem\n\n" "${API_GW_IP}" >> ~/.ssh/config
+
+          # servicos privados — ProxyJump pelo api-gateway
+          for IP in "${CATALOG_IP}" "${ORDER_IP}" "${NOTIFICATION_IP}"; do
+            if [ -n "${IP}" ] && [ "${IP}" != "None" ]; then
+              printf "Host %s\n  ProxyJump ec2-user@%s\n  StrictHostKeyChecking no\n  IdentityFile /tmp/deploy_key.pem\n\n" "${IP}" "${API_GW_IP}" >> ~/.ssh/config
+            fi
+          done
+
+          # fallback
+          printf "Host *\n  StrictHostKeyChecking no\n  IdentityFile /tmp/deploy_key.pem\n" >> ~/.ssh/config
+
+          chmod 600 ~/.ssh/config
+          echo "=== SSH config gerado ==="
+          cat ~/.ssh/config
+
+      - name: Run Ansible Playbook
+        env:
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          ORDER_AWS_ACCESS_KEY_ID: ${{ secrets.ORDER_AWS_ACCESS_KEY_ID }}
+          ORDER_AWS_SECRET_ACCESS_KEY: ${{ secrets.ORDER_AWS_SECRET_ACCESS_KEY }}
+          NOTIFICATION_AWS_ACCESS_KEY_ID: ${{ secrets.NOTIFICATION_AWS_ACCESS_KEY_ID }}
+          NOTIFICATION_AWS_SECRET_ACCESS_KEY: ${{ secrets.NOTIFICATION_AWS_SECRET_ACCESS_KEY }}
+          ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
+        run: |
+          IMAGE_TAG="${GITHUB_SHA::8}"
+          ansible-playbook \
+            -i ansible/inventory/aws_ec2.yml \
+            ansible/playbooks/deploy.yml \
+            --private-key /tmp/deploy_key.pem \
+            --extra-vars "image_tag=${IMAGE_TAG} ecr_registry=${ECR_REGISTRY}" \
+            -u ec2-user

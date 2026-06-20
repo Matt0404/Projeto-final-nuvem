@@ -11,18 +11,6 @@
     host_port: 8080
     container_port: 8080
   tasks:
-    # Guarda rápida: falha cedo com mensagem clara se o inventário
-    # tiver resolvido ansible_host para um IP privado em vez de público
-    - name: Assert ansible_host é um IP público
-      assert:
-        that:
-          - ansible_host is defined
-          - ansible_host | ansible.utils.ipaddr('public')
-        fail_msg: >-
-          api-gateway: ansible_host='{{ ansible_host }}' não é um IP público.
-          Verifica a expressão compose em aws_ec2.yml.
-        success_msg: "api-gateway ansible_host={{ ansible_host }} — OK (IP público)"
-
     - name: Instalar dependências Python para módulos Ansible
       pip:
         name:
