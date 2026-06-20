@@ -1,5 +1,4 @@
 name: PR Pipeline — Lint, Test & Plan
-
 on:
   pull_request:
     branches: [main]
