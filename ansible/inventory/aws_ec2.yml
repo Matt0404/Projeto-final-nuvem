@@ -21,4 +21,5 @@ hostnames:
 
 compose:
   ansible_host: public_ip_address | default(private_ip_address)
-  ansible_user: "'ec2-user'"                                   
+  ansible_user: "'ec2-user'"            
+  ansible_python_interpreter: "'/usr/bin/python3.11'"                       
