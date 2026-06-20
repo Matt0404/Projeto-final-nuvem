@@ -137,6 +137,21 @@ jobs:
           head -1 /tmp/deploy_key.pem
           tail -1 /tmp/deploy_key.pem
 
+
+      - name: Debug SSH key
+        run: |
+          echo "=== Primeiros e últimos caracteres ==="
+          head -1 /tmp/deploy_key.pem
+          tail -1 /tmp/deploy_key.pem
+          echo "=== Número de linhas ==="
+          wc -l /tmp/deploy_key.pem
+          echo "=== Fingerprint da chave no runner ==="
+          ssh-keygen -lf /tmp/deploy_key.pem
+          echo "=== Teste SSH verbose ==="
+          ssh -vvv -i /tmp/deploy_key.pem \
+              -o StrictHostKeyChecking=no \
+              ec2-user@3.67.133.53 "echo ok" 2>&1 | grep -E "identity|key|auth|perm|denied"
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
