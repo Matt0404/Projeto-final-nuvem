@@ -134,10 +134,8 @@ jobs:
         run: |
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key.pem
           chmod 600 /tmp/deploy_key.pem
-          # Verifica que a chave tem o formato correcto
           head -1 /tmp/deploy_key.pem
           tail -1 /tmp/deploy_key.pem
-
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -146,28 +144,40 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Configure SSH jump host (api-gateway → subnets privadas)
+      - name: Configure SSH jump host (api-gateway -> subnets privadas)
         run: |
+          # IP publico do api-gateway (bastion)
           API_GW_IP=$(aws ec2 describe-instances \
             --filters "Name=tag:Name,Values=api_gateway" \
                       "Name=instance-state-name,Values=running" \
             --query "Reservations[0].Instances[0].PublicIpAddress" \
             --output text)
-
           echo "API Gateway IP: ${API_GW_IP}"
 
+          # IPs privados dos servicos sem IP publico
+          PRIVATE_IPS=$(aws ec2 describe-instances \
+            --filters "Name=tag:Project,Values=mini-ecommerce" \
+                      "Name=instance-state-name,Values=running" \
+            --query "Reservations[].Instances[?PublicIpAddress==null].PrivateIpAddress" \
+            --output text)
+          echo "Private IPs: ${PRIVATE_IPS}"
+
           mkdir -p ~/.ssh
-          cat >> ~/.ssh/config << EOF
-          Host 10.0.*.*
-            ProxyJump ec2-user@${API_GW_IP}
-            StrictHostKeyChecking no
-            IdentityFile /tmp/deploy_key.pem
-          Host *
-            StrictHostKeyChecking no
-            IdentityFile /tmp/deploy_key.pem
-          EOF
+
+          # api-gateway — acesso direto
+          printf "Host %s\n  StrictHostKeyChecking no\n  IdentityFile /tmp/deploy_key.pem\n\n" "${API_GW_IP}" >> ~/.ssh/config
+
+          # servicos privados — saltam pelo api-gateway
+          for IP in ${PRIVATE_IPS}; do
+            printf "Host %s\n  ProxyJump ec2-user@%s\n  StrictHostKeyChecking no\n  IdentityFile /tmp/deploy_key.pem\n\n" "${IP}" "${API_GW_IP}" >> ~/.ssh/config
+          done
+
+          # fallback
+          printf "Host *\n  StrictHostKeyChecking no\n  IdentityFile /tmp/deploy_key.pem\n" >> ~/.ssh/config
 
           chmod 600 ~/.ssh/config
+          echo "=== SSH config gerado ==="
+          cat ~/.ssh/config
 
       - name: Run Ansible Playbook
         env:
