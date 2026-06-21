@@ -1,9 +1,10 @@
-# ansible/playbooks/deploy.yml
+# infra/ansible/playbooks/deploy.yml
 # Faz pull das novas imagens e reinicia cada serviço na EC2 certa
 
+---
 # ── 1. API Gateway (subnet pública) ──────────────────────────────
 - name: Deploy api-gateway
-  hosts: api_gateway
+  hosts: api-gateway
   become: true
   vars:
     service_name: api-gateway
@@ -11,14 +12,6 @@
     host_port: 8080
     container_port: 8080
   tasks:
-    - name: Instalar dependências Python para módulos Ansible
-      pip:
-        name:
-          - "urllib3<2.0"
-          - "requests<2.30"
-          - docker
-        executable: pip3
-
     - name: Login to ECR
       shell: >
         aws ecr get-login-password --region eu-central-1 |
@@ -41,25 +34,17 @@
           - "{{ host_port }}:{{ container_port }}"
         env:
           SPRING_PROFILES_ACTIVE: docker
-          SERVICES_CATALOG_URL: "http://{{ hostvars[groups['catalog_service'][0]]['ansible_host'] }}:8082"
-          SERVICES_ORDER_URL: "http://{{ hostvars[groups['order_service'][0]]['ansible_host'] }}:8083"
+          SERVICES_CATALOG_URL: "http://{{ hostvars[groups['catalog-service'][0]]['ansible_host'] }}:8082"
+          SERVICES_ORDER_URL: "http://{{ hostvars[groups['order-service'][0]]['ansible_host'] }}:8083"
 
 # ── 2. Catalog Service (subnet privada) ──────────────────────────
 - name: Deploy catalog-service
-  hosts: catalog_service
+  hosts: catalog-service
   become: true
   vars:
     service_name: catalog-service
     image: "{{ ecr_registry }}/catalog-service:{{ image_tag }}"
   tasks:
-    - name: Instalar dependências Python para módulos Ansible
-      pip:
-        name:
-          - "urllib3<2.0"
-          - "requests<2.30"
-          - docker
-        executable: pip3
-
     - name: Login to ECR
       shell: >
         aws ecr get-login-password --region eu-central-1 |
@@ -88,20 +73,12 @@
 
 # ── 3. Order Service (subnet privada) ────────────────────────────
 - name: Deploy order-service
-  hosts: order_service
+  hosts: order-service
   become: true
   vars:
     service_name: order-service
     image: "{{ ecr_registry }}/order-service:{{ image_tag }}"
   tasks:
-    - name: Instalar dependências Python para módulos Ansible
-      pip:
-        name:
-          - "urllib3<2.0"
-          - "requests<2.30"
-          - docker
-        executable: pip3
-
     - name: Login to ECR
       shell: >
         aws ecr get-login-password --region eu-central-1 |
@@ -134,20 +111,12 @@
 
 # ── 4. Notification Service (subnet privada) ─────────────────────
 - name: Deploy notification-service
-  hosts: notification_service
+  hosts: notification-service
   become: true
   vars:
     service_name: notification-service
     image: "{{ ecr_registry }}/notification-service:{{ image_tag }}"
   tasks:
-    - name: Instalar dependências Python para módulos Ansible
-      pip:
-        name:
-          - "urllib3<2.0"
-          - "requests<2.30"
-          - docker
-        executable: pip3
-
     - name: Login to ECR
       shell: >
         aws ecr get-login-password --region eu-central-1 |

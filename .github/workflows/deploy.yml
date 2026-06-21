@@ -112,7 +112,7 @@ jobs:
   ansible-deploy:
     name: Ansible Deploy
     runs-on: ubuntu-latest
-    needs: [build-and-push, terraform-apply]
+    needs: terraform-apply
     environment: production
 
     steps:
@@ -126,16 +126,13 @@ jobs:
 
       - name: Install Ansible
         run: |
-          pip install "ansible==9.5.1" boto3 botocore --quiet
-          ansible-galaxy collection install amazon.aws community.docker
+          pip install ansible boto3 botocore --quiet
           ansible --version
 
       - name: Write SSH private key
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key.pem
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > /tmp/deploy_key.pem
           chmod 600 /tmp/deploy_key.pem
-          head -1 /tmp/deploy_key.pem
-          tail -1 /tmp/deploy_key.pem
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -143,59 +140,6 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-
-      - name: Configure SSH jump host (api-gateway -> subnets privadas)
-        run: |
-          # IP publico do api-gateway — query dedicada por tag Name
-          API_GW_IP=$(aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=api_gateway" \
-                      "Name=instance-state-name,Values=running" \
-            --query "Reservations[0].Instances[0].PublicIpAddress" \
-            --output text)
-          echo "API Gateway IP: ${API_GW_IP}"
-
-          # IPs privados do catalog-service — query dedicada por tag Name
-          CATALOG_IP=$(aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=catalog_service" \
-                      "Name=instance-state-name,Values=running" \
-            --query "Reservations[0].Instances[0].PrivateIpAddress" \
-            --output text)
-          echo "Catalog IP: ${CATALOG_IP}"
-
-          # IPs privados do order-service — query dedicada por tag Name
-          ORDER_IP=$(aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=order_service" \
-                      "Name=instance-state-name,Values=running" \
-            --query "Reservations[0].Instances[0].PrivateIpAddress" \
-            --output text)
-          echo "Order IP: ${ORDER_IP}"
-
-          # IPs privados do notification-service — query dedicada por tag Name
-          NOTIFICATION_IP=$(aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=notification_service" \
-                      "Name=instance-state-name,Values=running" \
-            --query "Reservations[0].Instances[0].PrivateIpAddress" \
-            --output text)
-          echo "Notification IP: ${NOTIFICATION_IP}"
-
-          mkdir -p ~/.ssh
-
-          # api-gateway — acesso direto, sem ProxyJump
-          printf "Host %s\n  StrictHostKeyChecking no\n  IdentityFile /tmp/deploy_key.pem\n\n" "${API_GW_IP}" >> ~/.ssh/config
-
-          # servicos privados — ProxyJump pelo api-gateway
-          for IP in "${CATALOG_IP}" "${ORDER_IP}" "${NOTIFICATION_IP}"; do
-            if [ -n "${IP}" ] && [ "${IP}" != "None" ]; then
-              printf "Host %s\n  ProxyJump ec2-user@%s\n  StrictHostKeyChecking no\n  IdentityFile /tmp/deploy_key.pem\n\n" "${IP}" "${API_GW_IP}" >> ~/.ssh/config
-            fi
-          done
-
-          # fallback
-          printf "Host *\n  StrictHostKeyChecking no\n  IdentityFile /tmp/deploy_key.pem\n" >> ~/.ssh/config
-
-          chmod 600 ~/.ssh/config
-          echo "=== SSH config gerado ==="
-          cat ~/.ssh/config
 
       - name: Run Ansible Playbook
         env:
@@ -208,7 +152,6 @@ jobs:
           NOTIFICATION_AWS_SECRET_ACCESS_KEY: ${{ secrets.NOTIFICATION_AWS_SECRET_ACCESS_KEY }}
           ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
         run: |
-          IMAGE_TAG="${GITHUB_SHA::8}"
           ansible-playbook \
             -i ansible/inventory/aws_ec2.yml \
             ansible/playbooks/deploy.yml \
