@@ -21,4 +21,8 @@ hostnames:
 
 compose:
   ansible_host: public_ip_address | default(private_ip_address)
-  ansible_python_interpreter: /usr/bin/python3.9
+  ansible_python_interpreter: /usr/bin/python3
+  ansible_ssh_common_args: >-
+    -o StrictHostKeyChecking=no
+    -o ForwardAgent=yes
+    -o ProxyJump=ec2-user@3.67.194.185
