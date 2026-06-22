@@ -10,13 +10,13 @@ filters:
   instance-state-name: running
 
 keyed_groups:
-  # Cria grupos pelo tag Name: api-gateway, catalog-service, etc.
+  # Cria grupos pelo tag Name: api_gateway, catalog_service, etc.
   - key: tags.Name
     prefix: ""
     separator: ""
 
 hostnames:
-  - ip-address   # usa IP público para as instâncias públicas (api-gateway)
+  - ip-address   # usa IP público para as instâncias públicas (api_gateway)
   - private-ip-address
 
 compose:

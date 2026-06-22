@@ -2,6 +2,15 @@
 # Faz pull das novas imagens e reinicia cada serviço na EC2 certa
 
 ---
+# ── 0. Instalar Python3 em todas as EC2 ──────────────────────────
+- name: Ensure Python3 is installed
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Install Python3
+      raw: yum install -y python3
+      
 # ── 1. API Gateway (subnet pública) ──────────────────────────────
 - name: Deploy api-gateway
   hosts: api_gateway
