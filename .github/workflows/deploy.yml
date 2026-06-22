@@ -133,10 +133,6 @@ jobs:
         run: |
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key.pem
           chmod 600 /tmp/deploy_key.pem
-          # Adiciona ao ssh-agent para o ProxyJump funcionar
-          eval $(ssh-agent -s)
-          ssh-add /tmp/deploy_key.pem
-
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -165,7 +161,6 @@ jobs:
 
       - name: Run Ansible Playbook
         env:
-          ANSIBLE_SSH_ARGS: "-o StrictHostKeyChecking=no -o ForwardAgent=yes -o ProxyJump=ec2-user@3.67.194.185"
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
           DB_USERNAME: ${{ secrets.DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
@@ -179,6 +174,6 @@ jobs:
             -i ansible/inventory/aws_ec2.yml \
             ansible/playbooks/deploy.yml \
             --private-key /tmp/deploy_key.pem \
-            --extra-vars "image_tag=${IMAGE_TAG} ecr_registry=${ECR_REGISTRY} ansible_python_interpreter=/usr/bin/python3" \
-            --ssh-extra-args="-o StrictHostKeyChecking=no -o ForwardAgent=yes" \
+            --extra-vars "image_tag=${IMAGE_TAG} ecr_registry=${ECR_REGISTRY} ansible_python_interpreter=/usr/bin/python3.9" \
+            --ssh-extra-args="-o StrictHostKeyChecking=no" \
             -u ec2-user
