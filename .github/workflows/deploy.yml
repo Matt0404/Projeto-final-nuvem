@@ -141,6 +141,24 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+
+
+
+
+      - name: Debug inventory
+        run: |
+          ansible-inventory \
+            -i ansible/inventory/aws_ec2.yml \
+            --list
+
+
+
+
+
+
+
+
+
       - name: Run Ansible Playbook
         env:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
