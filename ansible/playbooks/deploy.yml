@@ -1,23 +1,30 @@
 # ansible/playbooks/deploy.yml
 # Faz pull das novas imagens e reinicia cada serviço na EC2 certa
 
----
 # ── 0. Instalar Python3 em todas as EC2 ──────────────────────────
 - name: Ensure Python3 is installed
   hosts: all
   become: true
   gather_facts: false
+  vars:
+    ansible_python_interpreter: /usr/bin/python3  # fallback só para este play
   tasks:
-    - name: Install Python3.9+
+    - name: Install Python3
       raw: |
-        yum install -y python39 2>/dev/null || \
-        yum install -y python38 2>/dev/null || \
-        yum install -y python3
+        if command -v python3 &>/dev/null; then
+          echo "python3 already present: $(python3 --version)"
+        else
+          yum install -y python3 || apt-get install -y python3
+        fi
 
-    - name: Set python3.9 as default if available
-      raw: |
-        alternatives --set python3 /usr/bin/python3.9 2>/dev/null || \
-        alternatives --set python3 /usr/bin/python3.8 2>/dev/null || true
+    - name: Verify python3 is usable
+      raw: python3 -c "import sys; print(sys.version)"
+      register: py_version
+      changed_when: false
+
+    - name: Show python version found
+      debug:
+        var: py_version.stdout
 
 
 
