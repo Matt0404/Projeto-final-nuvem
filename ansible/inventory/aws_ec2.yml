@@ -1,4 +1,4 @@
-# infra/ansible/inventory/aws_ec2.yml
+# ansible/inventory/aws_ec2.yml
 # Inventário dinâmico — descobre as EC2 pelo tag Project + Name
 plugin: amazon.aws.aws_ec2
 
@@ -10,7 +10,7 @@ filters:
   instance-state-name: running
 
 keyed_groups:
-  # Cria grupos pelo tag Name: api_gateway, catalog_service, etc.
+  # Cria grupos pelo tag Name: api-gateway, catalog-service, etc.
   - key: tags.Name
     prefix: ""
     separator: ""

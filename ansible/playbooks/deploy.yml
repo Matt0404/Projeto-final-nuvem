@@ -1,4 +1,4 @@
-# infra/ansible/playbooks/deploy.yml
+# ansible/playbooks/deploy.yml
 # Faz pull das novas imagens e reinicia cada serviço na EC2 certa
 
 ---
