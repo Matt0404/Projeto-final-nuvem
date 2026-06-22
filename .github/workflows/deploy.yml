@@ -126,18 +126,8 @@ jobs:
 
       - name: Install Ansible
         run: |
-          pip install \
-            ansible==9.5.1 \
-            boto3==1.34.0 \
-            botocore==1.34.0 \
-            amazon.aws \
-            --quiet
-          ansible-galaxy collection install amazon.aws
+          pip install ansible boto3 botocore --quiet
           ansible --version
-
-
-
-
 
       - name: Write SSH private key
         run: |
