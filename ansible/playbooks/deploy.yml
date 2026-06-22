@@ -8,16 +8,20 @@
   become: true
   gather_facts: false
   tasks:
-    - name: Check Python location
-      raw: which python3 || which python
-      register: python_location
+    - name: Install Python3.9+
+      raw: |
+        yum install -y python39 2>/dev/null || \
+        yum install -y python38 2>/dev/null || \
+        yum install -y python3
 
-    - name: Show Python location
-      debug:
-        var: python_location.stdout
+    - name: Set python3.9 as default if available
+      raw: |
+        alternatives --set python3 /usr/bin/python3.9 2>/dev/null || \
+        alternatives --set python3 /usr/bin/python3.8 2>/dev/null || true
 
-    - name: Install Python3
-      raw: yum install -y python3
+
+
+
 
 # ── 1. API Gateway (subnet pública) ──────────────────────────────
 - name: Deploy api-gateway
