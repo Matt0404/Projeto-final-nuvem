@@ -8,9 +8,17 @@
   become: true
   gather_facts: false
   tasks:
+    - name: Check Python location
+      raw: which python3 || which python
+      register: python_location
+
+    - name: Show Python location
+      debug:
+        var: python_location.stdout
+
     - name: Install Python3
       raw: yum install -y python3
-      
+
 # ── 1. API Gateway (subnet pública) ──────────────────────────────
 - name: Deploy api-gateway
   hosts: api_gateway
