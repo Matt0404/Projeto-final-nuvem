@@ -175,4 +175,5 @@ jobs:
             ansible/playbooks/deploy.yml \
             --private-key /tmp/deploy_key.pem \
             --extra-vars "image_tag=${IMAGE_TAG} ecr_registry=${ECR_REGISTRY}" \
+            --ssh-extra-args="-o StrictHostKeyChecking=no" \
             -u ec2-user
