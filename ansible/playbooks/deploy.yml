@@ -7,24 +7,29 @@
   become: true
   gather_facts: false
   vars:
-    ansible_python_interpreter: /usr/bin/python3  # fallback só para este play
+    ansible_python_interpreter: /usr/bin/python3
   tasks:
-    - name: Install Python3
+    - name: Enable python39 on Amazon Linux 2
       raw: |
-        if command -v python3 &>/dev/null; then
-          echo "python3 already present: $(python3 --version)"
+        # Amazon Linux 2: python3.9 está no amazon-linux-extras
+        if amazon-linux-extras list 2>/dev/null | grep -q python3.9; then
+          amazon-linux-extras install python3.9 -y
+        # Amazon Linux 2023: está no dnf directamente
+        elif dnf list available python3.9 2>/dev/null | grep -q python3.9; then
+          dnf install -y python3.9
+        # Fallback
         else
-          yum install -y python3 || apt-get install -y python3
+          yum install -y python3.9 || yum install -y python38 || yum install -y python3
         fi
 
-    - name: Verify python3 is usable
-      raw: python3 -c "import sys; print(sys.version)"
-      register: py_version
+    - name: Verify python3.9 exists
+      raw: ls /usr/bin/python3.9 && /usr/bin/python3.9 --version
+      register: py_check
       changed_when: false
 
-    - name: Show python version found
+    - name: Show python found
       debug:
-        var: py_version.stdout
+        var: py_check.stdout
 
 
 

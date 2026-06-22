@@ -144,14 +144,17 @@ jobs:
 
 
 
+          
 
-      - name: Debug inventory
+      - name: Debug python on hosts
         run: |
-          ansible-inventory \
+          ansible all \
             -i ansible/inventory/aws_ec2.yml \
-            --list
-
-
+            -m raw \
+            -a "amazon-linux-extras list 2>/dev/null | grep python; ls /usr/bin/python* 2>/dev/null" \
+            --private-key /tmp/deploy_key.pem \
+            --ssh-extra-args="-o StrictHostKeyChecking=no" \
+            -u ec2-user
 
 
 
