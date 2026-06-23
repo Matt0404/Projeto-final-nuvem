@@ -144,22 +144,6 @@ jobs:
 
 
 
-          
-
-      - name: Debug python on hosts
-        run: |
-          ansible all \
-            -i ansible/inventory/aws_ec2.yml \
-            -m raw \
-            -a "amazon-linux-extras list 2>/dev/null | grep python; ls /usr/bin/python* 2>/dev/null" \
-            --private-key /tmp/deploy_key.pem \
-            --ssh-extra-args="-o StrictHostKeyChecking=no" \
-            -u ec2-user
-
-
-
-
-
 
 
       - name: Run Ansible Playbook
