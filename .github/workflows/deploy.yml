@@ -91,7 +91,7 @@ jobs:
         run: |
           terraform apply -auto-approve \
             -var="db_password=${{ secrets.DB_PASSWORD }}" \
-            -var="key_name=${{ secrets.KEY_NAME }}"
+            -var="key_name=${{ secrets.EC2_KEY_NAME }}"
 
       # Exporta os IPs das EC2 para o Ansible usar
       - name: Export EC2 IPs
@@ -131,7 +131,7 @@ jobs:
 
       - name: Write SSH private key
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key.pem
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > /tmp/deploy_key.pem
           chmod 600 /tmp/deploy_key.pem
 
       - name: Configure AWS credentials
@@ -140,11 +140,6 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-
-
-
-
-
 
       - name: Run Ansible Playbook
         env:
@@ -162,5 +157,4 @@ jobs:
             ansible/playbooks/deploy.yml \
             --private-key /tmp/deploy_key.pem \
             --extra-vars "image_tag=${IMAGE_TAG} ecr_registry=${ECR_REGISTRY}" \
-            --ssh-extra-args="-o StrictHostKeyChecking=no" \
             -u ec2-user

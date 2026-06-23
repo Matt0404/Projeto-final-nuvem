@@ -1,4 +1,4 @@
-# ansible/inventory/aws_ec2.yml
+# infra/ansible/inventory/aws_ec2.yml
 # Inventário dinâmico — descobre as EC2 pelo tag Project + Name
 plugin: amazon.aws.aws_ec2
 
@@ -16,9 +16,8 @@ keyed_groups:
     separator: ""
 
 hostnames:
-  - ip-address   # usa IP público para as instâncias públicas (api_gateway)
+  - ip-address   # usa IP público para as instâncias públicas (api-gateway)
   - private-ip-address
 
 compose:
   ansible_host: public_ip_address | default(private_ip_address)
-  ansible_python_interpreter: /usr/bin/python3.9

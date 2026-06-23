@@ -1,43 +1,10 @@
-# ansible/playbooks/deploy.yml
+# infra/ansible/playbooks/deploy.yml
 # Faz pull das novas imagens e reinicia cada serviço na EC2 certa
 
-# ── 0. Instalar Python3 em todas as EC2 ──────────────────────────
-- name: Ensure Python3 is installed
-  hosts: all
-  become: true
-  gather_facts: false
-  vars:
-    ansible_python_interpreter: /usr/bin/python3
-  tasks:
-    - name: Enable python39 on Amazon Linux 2
-      raw: |
-        # Amazon Linux 2: python3.9 está no amazon-linux-extras
-        if amazon-linux-extras list 2>/dev/null | grep -q python3.9; then
-          amazon-linux-extras install python3.9 -y
-        # Amazon Linux 2023: está no dnf directamente
-        elif dnf list available python3.9 2>/dev/null | grep -q python3.9; then
-          dnf install -y python3.9
-        # Fallback
-        else
-          yum install -y python3.9 || yum install -y python38 || yum install -y python3
-        fi
-
-    - name: Verify python3.9 exists
-      raw: ls /usr/bin/python3.9 && /usr/bin/python3.9 --version
-      register: py_check
-      changed_when: false
-
-    - name: Show python found
-      debug:
-        var: py_check.stdout
-
-
-
-
-
+---
 # ── 1. API Gateway (subnet pública) ──────────────────────────────
 - name: Deploy api-gateway
-  hosts: api_gateway
+  hosts: api-gateway
   become: true
   vars:
     service_name: api-gateway
@@ -67,12 +34,12 @@
           - "{{ host_port }}:{{ container_port }}"
         env:
           SPRING_PROFILES_ACTIVE: docker
-          SERVICES_CATALOG_URL: "http://{{ hostvars[groups['catalog_service'][0]]['ansible_host'] }}:8082"
-          SERVICES_ORDER_URL: "http://{{ hostvars[groups['order_service'][0]]['ansible_host'] }}:8083"
+          SERVICES_CATALOG_URL: "http://{{ hostvars[groups['catalog-service'][0]]['ansible_host'] }}:8082"
+          SERVICES_ORDER_URL: "http://{{ hostvars[groups['order-service'][0]]['ansible_host'] }}:8083"
 
 # ── 2. Catalog Service (subnet privada) ──────────────────────────
 - name: Deploy catalog-service
-  hosts: catalog_service
+  hosts: catalog-service
   become: true
   vars:
     service_name: catalog-service
@@ -106,7 +73,7 @@
 
 # ── 3. Order Service (subnet privada) ────────────────────────────
 - name: Deploy order-service
-  hosts: order_service
+  hosts: order-service
   become: true
   vars:
     service_name: order-service
@@ -144,7 +111,7 @@
 
 # ── 4. Notification Service (subnet privada) ─────────────────────
 - name: Deploy notification-service
-  hosts: notification_service
+  hosts: notification-service
   become: true
   vars:
     service_name: notification-service
