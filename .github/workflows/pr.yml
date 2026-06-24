@@ -102,7 +102,7 @@ jobs:
         run: |
           terraform plan -no-color -out=tfplan \
             -var="db_password=${{ secrets.DB_PASSWORD }}" \
-            -var="key_name=${{ secrets.EC2_KEY_NAME }}"
+            -var="key_name=${{ secrets.KEY_NAME }}"
         continue-on-error: true
 
       # Posta o plan como comentário no PR

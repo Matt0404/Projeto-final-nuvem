@@ -20,4 +20,5 @@ hostnames:
   - private-ip-address
 
 compose:
+  #endereço que o Ansible vai usar para se ligar à máquina via SSH.
   ansible_host: public_ip_address | default(private_ip_address)

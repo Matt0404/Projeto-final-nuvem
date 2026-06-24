@@ -3,7 +3,7 @@
 
 ---
 # ── 1. API Gateway (subnet pública) ──────────────────────────────
-- name: Deploy api-gateway
+- name: Deploy api_gateway
   hosts: api-gateway
   become: true
   vars:
@@ -34,12 +34,12 @@
           - "{{ host_port }}:{{ container_port }}"
         env:
           SPRING_PROFILES_ACTIVE: docker
-          SERVICES_CATALOG_URL: "http://{{ hostvars[groups['catalog-service'][0]]['ansible_host'] }}:8082"
-          SERVICES_ORDER_URL: "http://{{ hostvars[groups['order-service'][0]]['ansible_host'] }}:8083"
+          SERVICES_CATALOG_URL: "http://{{ hostvars[groups['catalog_service'][0]]['ansible_host'] }}:8082"
+          SERVICES_ORDER_URL: "http://{{ hostvars[groups['order_service'][0]]['ansible_host'] }}:8083"
 
 # ── 2. Catalog Service (subnet privada) ──────────────────────────
 - name: Deploy catalog-service
-  hosts: catalog-service
+  hosts: catalog_service
   become: true
   vars:
     service_name: catalog-service
@@ -73,7 +73,7 @@
 
 # ── 3. Order Service (subnet privada) ────────────────────────────
 - name: Deploy order-service
-  hosts: order-service
+  hosts: order_service
   become: true
   vars:
     service_name: order-service
@@ -111,7 +111,7 @@
 
 # ── 4. Notification Service (subnet privada) ─────────────────────
 - name: Deploy notification-service
-  hosts: notification-service
+  hosts: notification_service
   become: true
   vars:
     service_name: notification-service
